@@ -7,84 +7,92 @@ import (
 )
 
 func TestLoadDefaults(t *testing.T) {
-	t.Setenv("VAULT_TOKEN", "test-token")
-	t.Setenv("VAULTPULL_VAULT_PATH", "secret/myapp")
+	t.Setenv("VAULTPULL_VAULT_TOKEN", "test-token")
 
-	cfg, err := Load("")
-	if err != nil {
-		t.Fatalf("expected no error, got: %v", err)
+	cfg := mustLoadInline(t, `
+paths:
+  - secret/app/db
+`)
+	if cfg.VaultAddr != "http://127.0.0.1:8200" {
+		t.Errorf("default vault_addr wrong: %q", cfg.VaultAddr)
 	}
-
+	if cfg.MaxBackups != 5 {
+		t.Errorf("default max_backups wrong: %d", cfg.MaxBackups)
+	}
 	if cfg.OutputFile != ".env" {
-		t.Errorf("expected default output_file '.env', got %q", cfg.OutputFile)
+		t.Errorf("default output_file wrong: %q", cfg.OutputFile)
 	}
-	if cfg.BackupDir != ".env.backups" {
-		t.Errorf("expected default backup_dir '.env.backups', got %q", cfg.BackupDir)
-	}
-	if cfg.Rotate != false {
-		t.Errorf("expected default rotate false, got %v", cfg.Rotate)
-	}
-	if cfg.VaultToken != "test-token" {
-		t.Errorf("expected vault_token 'test-token', got %q", cfg.VaultToken)
+	if !cfg.Merge {
+		t.Error("default merge should be true")
 	}
 }
 
 func TestLoadFromFile(t *testing.T) {
-	tmpDir := t.TempDir()
-	cfgContent := []byte(`
-vault_addr: "http://vault.example.com:8200"
-vault_token: "s.mytoken"
-vault_path: "secret/data/myapp"
-output_file: ".env.production"
-rotate: true
-backup_dir: ".backups"
-mappings:
-  DB_PASSWORD: database_password
-  API_KEY: api_key
+	t.Setenv("VAULTPULL_VAULT_TOKEN", "")
+
+	cfg := mustLoadInline(t, `
+vault_token: file-token
+vault_addr: https://vault.example.com
+paths:
+  - secret/prod/db
+  - secret/prod/cache
+output_file: prod.env
+template_vars:
+  ENV: prod
 `)
-	cfgFile := filepath.Join(tmpDir, ".vaultpull.yaml")
-	if err := os.WriteFile(cfgFile, cfgContent, 0600); err != nil {
-		t.Fatalf("failed to write temp config: %v", err)
+	if cfg.VaultToken != "file-token" {
+		t.Errorf("vault_token: got %q", cfg.VaultToken)
 	}
-
-	cfg, err := Load(cfgFile)
-	if err != nil {
-		t.Fatalf("expected no error, got: %v", err)
+	if cfg.VaultAddr != "https://vault.example.com" {
+		t.Errorf("vault_addr: got %q", cfg.VaultAddr)
 	}
-
-	if cfg.VaultAddr != "http://vault.example.com:8200" {
-		t.Errorf("unexpected vault_addr: %q", cfg.VaultAddr)
+	if len(cfg.Paths) != 2 {
+		t.Errorf("paths len: got %d", len(cfg.Paths))
 	}
-	if cfg.VaultPath != "secret/data/myapp" {
-		t.Errorf("unexpected vault_path: %q", cfg.VaultPath)
-	}
-	if cfg.OutputFile != ".env.production" {
-		t.Errorf("unexpected output_file: %q", cfg.OutputFile)
-	}
-	if !cfg.Rotate {
-		t.Error("expected rotate to be true")
-	}
-	if len(cfg.Mappings) != 2 {
-		t.Errorf("expected 2 mappings, got %d", len(cfg.Mappings))
+	if cfg.TemplateVars["ENV"] != "prod" {
+		t.Errorf("template_vars[ENV]: got %q", cfg.TemplateVars["ENV"])
 	}
 }
 
 func TestValidateMissingToken(t *testing.T) {
-	cfg := &Config{
-		VaultAddr: "http://127.0.0.1:8200",
-		VaultPath: "secret/myapp",
-	}
-	if err := cfg.validate(); err == nil {
-		t.Error("expected validation error for missing token")
+	os.Unsetenv("VAULTPULL_VAULT_TOKEN")
+	tmp := writeConfigFile(t, `
+paths:
+  - secret/app
+`)
+	_, err := Load(tmp)
+	if err == nil {
+		t.Fatal("expected error for missing token")
 	}
 }
 
 func TestValidateMissingPath(t *testing.T) {
-	cfg := &Config{
-		VaultAddr:  "http://127.0.0.1:8200",
-		VaultToken: "s.token",
+	t.Setenv("VAULTPULL_VAULT_TOKEN", "tok")
+	tmp := writeConfigFile(t, `vault_token: tok\n`)
+	_, err := Load(tmp)
+	if err == nil {
+		t.Fatal("expected error for missing paths")
 	}
-	if err := cfg.validate(); err == nil {
-		t.Error("expected validation error for missing vault_path")
+}
+
+// helpers
+
+func mustLoadInline(t *testing.T, yaml string) *Config {
+	t.Helper()
+	tmp := writeConfigFile(t, yaml)
+	cfg, err := Load(tmp)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
 	}
+	return cfg
+}
+
+func writeConfigFile(t *testing.T, content string) string {
+	t.Helper()
+	dir := t.TempDir()
+	p := filepath.Join(dir, ".vaultpull.yaml")
+	if err := os.WriteFile(p, []byte(content), 0600); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+	return p
 }

@@ -1,78 +1,90 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/spf13/viper"
 )
 
-// Config holds the application configuration
+// Config holds all runtime configuration for vaultpull.
 type Config struct {
-	VaultAddr  string            `mapstructure:"vault_addr"`
-	VaultToken string            `mapstructure:"vault_token"`
-	VaultPath  string            `mapstructure:"vault_path"`
-	OutputFile string            `mapstructure:"output_file"`
-	Rotate     bool              `mapstructure:"rotate"`
-	BackupDir  string            `mapstructure:"backup_dir"`
-	Mappings   map[string]string `mapstructure:"mappings"`
+	// Vault connection
+	VaultAddr  string `mapstructure:"vault_addr"`
+	VaultToken string `mapstructure:"vault_token"`
+	VaultMount string `mapstructure:"vault_mount"`
+
+	// Secret paths to pull (may contain template variables)
+	Paths []string `mapstructure:"paths"`
+
+	// Output
+	OutputFile string `mapstructure:"output_file"`
+	Merge      bool   `mapstructure:"merge"`
+
+	// Rotation
+	BackupDir  string `mapstructure:"backup_dir"`
+	MaxBackups int    `mapstructure:"max_backups"`
+
+	// Audit
+	AuditLog string `mapstructure:"audit_log"`
+
+	// Template variables used to expand Paths
+	TemplateVars map[string]string `mapstructure:"template_vars"`
+
+	// Timeout for Vault HTTP requests
+	Timeout time.Duration `mapstructure:"timeout"`
 }
 
-// Load reads configuration from file and environment variables
+// Load reads configuration from file and environment, then validates it.
 func Load(cfgFile string) (*Config, error) {
+	v := viper.New()
+
+	v.SetDefault("vault_addr", "http://127.0.0.1:8200")
+	v.SetDefault("vault_mount", "secret")
+	v.SetDefault("output_file", ".env")
+	v.SetDefault("merge", true)
+	v.SetDefault("backup_dir", ".env.backups")
+	v.SetDefault("max_backups", 5)
+	v.SetDefault("timeout", 10*time.Second)
+
+	v.SetEnvPrefix("VAULTPULL")
+	v.AutomaticEnv()
+
 	if cfgFile != "" {
-		viper.SetConfigFile(cfgFile)
+		v.SetConfigFile(cfgFile)
 	} else {
-		viper.AddConfigPath(".")
-		viper.SetConfigName(".vaultpull")
-		viper.SetConfigType("yaml")
+		v.SetConfigName(".vaultpull")
+		v.SetConfigType("yaml")
+		v.AddConfigPath(".")
+		v.AddConfigPath(os.ExpandEnv("$HOME"))
 	}
 
-	viper.SetEnvPrefix("VAULTPULL")
-	viper.AutomaticEnv()
-
-	// Set defaults
-	viper.SetDefault("output_file", ".env")
-	viper.SetDefault("backup_dir", ".env.backups")
-	viper.SetDefault("rotate", false)
-	viper.SetDefault("vault_addr", "http://127.0.0.1:8200")
-
-	if err := viper.ReadInConfig(); err != nil {
-		if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
-			return nil, fmt.Errorf("error reading config file: %w", err)
+	if err := v.ReadInConfig(); err != nil {
+		var notFound viper.ConfigFileNotFoundError
+		if !errors.As(err, &notFound) && cfgFile != "" {
+			return nil, fmt.Errorf("config: read %q: %w", cfgFile, err)
 		}
 	}
 
-	// Allow VAULT_TOKEN from environment directly
-	if token := os.Getenv("VAULT_TOKEN"); token != "" && viper.GetString("vault_token") == "" {
-		viper.Set("vault_token", token)
-	}
-
-	if addr := os.Getenv("VAULT_ADDR"); addr != "" && viper.GetString("vault_addr") == "http://127.0.0.1:8200" {
-		viper.Set("vault_addr", addr)
-	}
-
 	var cfg Config
-	if err := viper.Unmarshal(&cfg); err != nil {
-		return nil, fmt.Errorf("error unmarshalling config: %w", err)
+	if err := v.Unmarshal(&cfg); err != nil {
+		return nil, fmt.Errorf("config: unmarshal: %w", err)
 	}
 
-	if err := cfg.validate(); err != nil {
+	if err := validate(&cfg); err != nil {
 		return nil, err
 	}
-
 	return &cfg, nil
 }
 
-func (c *Config) validate() error {
-	if c.VaultAddr == "" {
-		return fmt.Errorf("vault_addr is required")
-	}
+func validate(c *Config) error {
 	if c.VaultToken == "" {
-		return fmt.Errorf("vault_token is required (set VAULT_TOKEN or vault_token in config)")
+		return errors.New("config: vault_token is required (set VAULTPULL_VAULT_TOKEN or vault_token in config)")
 	}
-	if c.VaultPath == "" {
-		return fmt.Errorf("vault_path is required")
+	if len(c.Paths) == 0 {
+		return errors.New("config: at least one path is required")
 	}
 	return nil
 }
