@@ -2,6 +2,7 @@ package filter
 
 import (
 	"bufio"
+	"fmt"
 	"os"
 	"strings"
 )
@@ -21,7 +22,7 @@ func (pc PatternConfig) Resolve() (*Filter, error) {
 	if pc.File != "" {
 		filePatterns, err := loadPatternsFromFile(pc.File)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("loading pattern file %q: %w", pc.File, err)
 		}
 		patterns = append(patterns, filePatterns...)
 	}
