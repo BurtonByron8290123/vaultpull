@@ -30,21 +30,26 @@ func Print(w io.Writer, result *Result, opts PrintOptions) {
 	})
 
 	for _, c := range changes {
-		switch c.Type {
-		case Added:
-			fmt.Fprintf(w, "%s+ %s = %s%s\n", colorize(colorGreen, opts.NoColor), c.Key, c.NewVal, colorize(colorReset, opts.NoColor))
-		case Updated:
-			fmt.Fprintf(w, "%s~ %s: %s → %s%s\n", colorize(colorYellow, opts.NoColor), c.Key, c.OldVal, c.NewVal, colorize(colorReset, opts.NoColor))
-		case Removed:
-			fmt.Fprintf(w, "%s- %s (was %s)%s\n", colorize(colorRed, opts.NoColor), c.Key, c.OldVal, colorize(colorReset, opts.NoColor))
-		case Unchanged:
-			if opts.ShowUnchanged {
-				fmt.Fprintf(w, "%s  %s%s\n", colorize(colorGray, opts.NoColor), c.Key, colorize(colorReset, opts.NoColor))
-			}
-		}
+		printChange(w, c, opts)
 	}
 
 	fmt.Fprintf(w, "\n%s\n", result.Summary())
+}
+
+// printChange writes a single Change entry to w using the given options.
+func printChange(w io.Writer, c Change, opts PrintOptions) {
+	switch c.Type {
+	case Added:
+		fmt.Fprintf(w, "%s+ %s = %s%s\n", colorize(colorGreen, opts.NoColor), c.Key, c.NewVal, colorize(colorReset, opts.NoColor))
+	case Updated:
+		fmt.Fprintf(w, "%s~ %s: %s → %s%s\n", colorize(colorYellow, opts.NoColor), c.Key, c.OldVal, c.NewVal, colorize(colorReset, opts.NoColor))
+	case Removed:
+		fmt.Fprintf(w, "%s- %s (was %s)%s\n", colorize(colorRed, opts.NoColor), c.Key, c.OldVal, colorize(colorReset, opts.NoColor))
+	case Unchanged:
+		if opts.ShowUnchanged {
+			fmt.Fprintf(w, "%s  %s%s\n", colorize(colorGray, opts.NoColor), c.Key, colorize(colorReset, opts.NoColor))
+		}
+	}
 }
 
 func colorize(code string, noColor bool) string {
