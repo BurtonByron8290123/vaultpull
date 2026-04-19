@@ -38,17 +38,48 @@ func Print(w io.Writer, result *Result, opts PrintOptions) {
 
 // printChange writes a single Change entry to w using the given options.
 func printChange(w io.Writer, c Change, opts PrintOptions) {
+	color := changeColor(c.Type)
+	prefix := changePrefix(c.Type)
+
 	switch c.Type {
 	case Added:
-		fmt.Fprintf(w, "%s+ %s = %s%s\n", colorize(colorGreen, opts.NoColor), c.Key, c.NewVal, colorize(colorReset, opts.NoColor))
+		fmt.Fprintf(w, "%s%s %s = %s%s\n", colorize(color, opts.NoColor), prefix, c.Key, c.NewVal, colorize(colorReset, opts.NoColor))
 	case Updated:
-		fmt.Fprintf(w, "%s~ %s: %s → %s%s\n", colorize(colorYellow, opts.NoColor), c.Key, c.OldVal, c.NewVal, colorize(colorReset, opts.NoColor))
+		fmt.Fprintf(w, "%s%s %s: %s → %s%s\n", colorize(color, opts.NoColor), prefix, c.Key, c.OldVal, c.NewVal, colorize(colorReset, opts.NoColor))
 	case Removed:
-		fmt.Fprintf(w, "%s- %s (was %s)%s\n", colorize(colorRed, opts.NoColor), c.Key, c.OldVal, colorize(colorReset, opts.NoColor))
+		fmt.Fprintf(w, "%s%s %s (was %s)%s\n", colorize(color, opts.NoColor), prefix, c.Key, c.OldVal, colorize(colorReset, opts.NoColor))
 	case Unchanged:
 		if opts.ShowUnchanged {
-			fmt.Fprintf(w, "%s  %s%s\n", colorize(colorGray, opts.NoColor), c.Key, colorize(colorReset, opts.NoColor))
+			fmt.Fprintf(w, "%s%s %s%s\n", colorize(color, opts.NoColor), prefix, c.Key, colorize(colorReset, opts.NoColor))
 		}
+	}
+}
+
+// changeColor returns the ANSI color code associated with a ChangeType.
+func changeColor(t ChangeType) string {
+	switch t {
+	case Added:
+		return colorGreen
+	case Updated:
+		return colorYellow
+	case Removed:
+		return colorRed
+	default:
+		return colorGray
+	}
+}
+
+// changePrefix returns the single-character prefix symbol for a ChangeType.
+func changePrefix(t ChangeType) string {
+	switch t {
+	case Added:
+		return "+"
+	case Updated:
+		return "~"
+	case Removed:
+		return "-"
+	default:
+		return " "
 	}
 }
 
