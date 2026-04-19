@@ -47,6 +47,10 @@ func runPull(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to read secrets from %q: %w", secretPath, err)
 	}
 
+	if len(secrets) == 0 {
+		return fmt.Errorf("no secrets found at path %q", secretPath)
+	}
+
 	dryRun, _ := cmd.Flags().GetBool("dry-run")
 	if dryRun {
 		for k, v := range secrets {
@@ -60,7 +64,7 @@ func runPull(cmd *cobra.Command, args []string) error {
 
 	writer := envwriter.New(output)
 	if err := writer.Write(secrets, prefix); err != nil {
-		return to write .)
+		return fmt.Errorf("failed to write secrets to %q: %w", output, err)
 	}
 
 	fmt.Printf("Successfully wrote %d secrets to %s\n", len(secrets), output)
