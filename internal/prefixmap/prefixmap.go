@@ -46,3 +46,12 @@ func (m *Mapper) ApplyMap(vaultPath string, secrets map[string]string) map[strin
 	}
 	return out
 }
+
+// Paths returns the list of configured Vault paths in order.
+func (m *Mapper) Paths() []string {
+	paths := make([]string, len(m.entries))
+	for i, e := range m.entries {
+		paths[i] = e.Path
+	}
+	return paths
+}
