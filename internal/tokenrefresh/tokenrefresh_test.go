@@ -77,3 +77,10 @@ func TestNewRejectsInvalidPolicy(t *testing.T) {
 		t.Fatal("expected validation error")
 	}
 }
+
+func TestNewRejectsZeroMaxRetries(t *testing.T) {
+	_, err := New(nil, Policy{RenewThreshold: 5 * time.Minute, MaxRetries: 0})
+	if err == nil {
+		t.Fatal("expected validation error for zero MaxRetries")
+	}
+}
