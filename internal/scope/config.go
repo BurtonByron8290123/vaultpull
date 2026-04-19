@@ -20,6 +20,20 @@ func FromEnv() Policy {
 	}
 }
 
+// FromEnvWithOverrides builds a Policy like FromEnv but allows the caller to
+// supply explicit allow and deny lists that take precedence over environment
+// variables when non-nil.
+func FromEnvWithOverrides(allow, deny []string) Policy {
+	p := FromEnv()
+	if allow != nil {
+		p.Allow = allow
+	}
+	if deny != nil {
+		p.Deny = deny
+	}
+	return p
+}
+
 func splitEnv(val string) []string {
 	if strings.TrimSpace(val) == "" {
 		return nil
