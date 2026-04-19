@@ -43,3 +43,9 @@ func Print(w io.Writer, info Info) {
 	fmt.Fprintf(w, "  go version: %s\n", info.GoVersion)
 	fmt.Fprintf(w, "  os/arch:    %s/%s\n", info.OS, info.Arch)
 }
+
+// String returns a compact single-line version string suitable for logging.
+func (i Info) String() string {
+	return fmt.Sprintf("vaultpull/%s (commit=%s built=%s %s %s/%s)",
+		i.Version, i.Commit, i.BuildDate, i.GoVersion, i.OS, i.Arch)
+}
