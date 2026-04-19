@@ -73,3 +73,11 @@ func TestEmptyPatternsIgnored(t *testing.T) {
 		t.Errorf("expected 2 keys, got %d", len(result))
 	}
 }
+
+func TestApplyOnEmptySecrets(t *testing.T) {
+	f := filter.New([]string{"APP_"})
+	result := f.Apply(map[string]string{})
+	if len(result) != 0 {
+		t.Errorf("expected 0 keys, got %d", len(result))
+	}
+}
