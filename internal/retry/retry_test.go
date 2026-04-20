@@ -94,3 +94,14 @@ func TestContextCancellationStopsRetry(t *testing.T) {
 		t.Fatalf("expected context.Canceled, got %v", err)
 	}
 }
+
+func TestContextDeadlineExceeded(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond)
+	defer cancel()
+	err := retry.Do(ctx, fastPolicy(100), retry.AlwaysRetry, func() error {
+		return errTransient
+	})
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("expected context.DeadlineExceeded, got %v", err)
+	}
+}
