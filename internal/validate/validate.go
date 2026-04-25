@@ -58,3 +58,10 @@ func (v *Validator) Validate(secrets map[string]string) error {
 	}
 	return nil
 }
+
+// AddRule appends a new Rule to the Policy and returns the Validator
+// to allow method chaining.
+func (v *Validator) AddRule(r Rule) *Validator {
+	v.policy.Rules = append(v.policy.Rules, r)
+	return v
+}
