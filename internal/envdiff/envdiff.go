@@ -50,6 +50,17 @@ func (r *Report) Summary() string {
 	return fmt.Sprintf("+%d added  ~%d updated  -%d removed", added, updated, removed)
 }
 
+// FilterByKind returns a new Report containing only changes of the given kind.
+func (r *Report) FilterByKind(kind ChangeKind) *Report {
+	var filtered []Change
+	for _, c := range r.Changes {
+		if c.Kind == kind {
+			filtered = append(filtered, c)
+		}
+	}
+	return &Report{Changes: filtered}
+}
+
 // Compare produces a Report by diffing prev and next env maps.
 func Compare(prev, next map[string]string) *Report {
 	seen := make(map[string]bool)
