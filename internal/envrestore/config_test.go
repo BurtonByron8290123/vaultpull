@@ -53,3 +53,29 @@ func TestFromEnvIgnoresInvalidDryRun(t *testing.T) {
 		t.Error("expected DryRun false for invalid value")
 	}
 }
+
+// TestFromEnvDryRunVariants checks that common truthy and falsy string values
+// are parsed correctly for VAULTPULL_RESTORE_DRY_RUN.
+func TestFromEnvDryRunVariants(t *testing.T) {
+	truthy := []string{"true", "1", "TRUE", "True"}
+	for _, v := range truthy {
+		t.Run("truthy_"+v, func(t *testing.T) {
+			t.Setenv("VAULTPULL_RESTORE_DRY_RUN", v)
+			p := envrestore.FromEnv()
+			if !p.DryRun {
+				t.Errorf("expected DryRun true for value %q", v)
+			}
+		})
+	}
+
+	falsy := []string{"false", "0", "FALSE", ""}
+	for _, v := range falsy {
+		t.Run("falsy_"+v, func(t *testing.T) {
+			t.Setenv("VAULTPULL_RESTORE_DRY_RUN", v)
+			p := envrestore.FromEnv()
+			if p.DryRun {
+				t.Errorf("expected DryRun false for value %q", v)
+			}
+		})
+	}
+}
